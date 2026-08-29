@@ -104,6 +104,7 @@ pub struct FairnessMetadata {
     pub draw_timestamp: u64,
     pub draw_sequence: u32,
     pub unique_winners: bool,
+    pub quorum_contributions: Option<Vec<(Address, u64)>>,
 }
 
 #[soroban_sdk::contracttype]
@@ -756,8 +757,6 @@ if config.randomness_source == RandomnessSource::External {
         // To complete the refactor, this logic should be moved to `admin.rs`.
         Err(Error::InvalidParameters)
     }
-
-}
 
     /// Permissionless entrypoint — anyone may call this to prevent a raffle
     /// from being archived by Soroban's TTL expiry.

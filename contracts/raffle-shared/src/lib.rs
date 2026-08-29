@@ -315,6 +315,8 @@ pub struct FairnessData {
     pub draw_sequence: u32,
     /// Whether unique-address winner fairness was enabled for this draw (#485).
     pub unique_winners: bool,
+    /// Contributing oracles and their seeds, if this was a Quorum draw.
+    pub quorum_contributions: Option<Vec<(Address, u64)>>,
 }
 
 /// Generic pagination request for list queries.
@@ -377,8 +379,7 @@ pub enum AdminOp {
 
 // Re-export constants from the single source of truth
 pub use constants::{
-    DEFAULT_CLAIM_LOCKUP_SECONDS, DEFAULT_PAGE_LIMIT, DEFAULT_SWAP_DEADLINE_SECONDS,
-    MAX_PAGE_LIMIT,
+    DEFAULT_CLAIM_LOCKUP_SECONDS, DEFAULT_PAGE_LIMIT, DEFAULT_SWAP_DEADLINE_SECONDS, MAX_PAGE_LIMIT,
 };
 
 /// Returns a safe pagination limit clamped to supported bounds.
@@ -488,9 +489,12 @@ macro_rules! impl_require_not_paused {
 #[cfg(test)]
 mod test {
     use super::*;
-    use soroban_sdk::{Env, String, Address, BytesN, Vec};
+    use soroban_sdk::{Address, BytesN, Env, String, Vec};
     fn default_config(env: &Env) -> RaffleConfig {
-        let payment_token = Address::from_string(&String::from_str(env, "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4"));
+        let payment_token = Address::from_string(&String::from_str(
+            env,
+            "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4",
+        ));
         RaffleConfig {
             description: String::from_str(env, "Test"),
             end_time: 0,
@@ -531,8 +535,14 @@ mod test {
         config.swap_deadline_seconds = None;
 
         let resolved = config.resolve_defaults();
-        assert_eq!(resolved.claim_lockup_seconds, Some(DEFAULT_CLAIM_LOCKUP_SECONDS));
-        assert_eq!(resolved.swap_deadline_seconds, Some(DEFAULT_SWAP_DEADLINE_SECONDS));
+        assert_eq!(
+            resolved.claim_lockup_seconds,
+            Some(DEFAULT_CLAIM_LOCKUP_SECONDS)
+        );
+        assert_eq!(
+            resolved.swap_deadline_seconds,
+            Some(DEFAULT_SWAP_DEADLINE_SECONDS)
+        );
     }
 
     #[test]
@@ -569,14 +579,20 @@ mod test {
         config1.swap_deadline_seconds = None;
         let resolved1 = config1.resolve_defaults();
         assert_eq!(resolved1.claim_lockup_seconds, Some(0));
-        assert_eq!(resolved1.swap_deadline_seconds, Some(DEFAULT_SWAP_DEADLINE_SECONDS));
+        assert_eq!(
+            resolved1.swap_deadline_seconds,
+            Some(DEFAULT_SWAP_DEADLINE_SECONDS)
+        );
 
         // Lockup is None, swap is Some(0)
         let mut config2 = default_config(&env);
         config2.claim_lockup_seconds = None;
         config2.swap_deadline_seconds = Some(0);
         let resolved2 = config2.resolve_defaults();
-        assert_eq!(resolved2.claim_lockup_seconds, Some(DEFAULT_CLAIM_LOCKUP_SECONDS));
+        assert_eq!(
+            resolved2.claim_lockup_seconds,
+            Some(DEFAULT_CLAIM_LOCKUP_SECONDS)
+        );
         assert_eq!(resolved2.swap_deadline_seconds, Some(0));
     }
 }
@@ -632,7 +648,11 @@ mod raffle_status_tests {
 
     #[test]
     fn terminal_states_have_no_outgoing_transitions() {
-        for status in [RaffleStatus::Cancelled, RaffleStatus::Failed, RaffleStatus::Claimed] {
+        for status in [
+            RaffleStatus::Cancelled,
+            RaffleStatus::Failed,
+            RaffleStatus::Claimed,
+        ] {
             assert!(status.is_terminal());
             for target in RaffleStatus::all() {
                 if *target != status {

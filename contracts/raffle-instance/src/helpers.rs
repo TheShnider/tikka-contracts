@@ -251,8 +251,6 @@ pub(crate) fn calculate_tier_prize(raffle: &Raffle, tier_index: u32) -> Result<i
         .map(|a| a / 10000)
 }
 
-    initial_index
-}
 
 /// Finalize the raffle using a pre-computed `u64` seed.
 ///
@@ -338,9 +336,24 @@ pub(crate) fn do_finalize_with_seed(
         .publish(env);
     }
 
-    let mut claimed_winners = Vec::new(env);
-    for _ in 0..raffle.prizes.len() {
-        claimed_winners.push_back(false);
+    let mut quorum_contributions: Option<Vec<(Address, u64)>> = None;
+    if let Some(submitted) = env.storage().persistent().get::<_, Vec<Address>>(&DataKey::QuorumSubmittedOracles) {
+        let mut contributions = Vec::new(env);
+        for i in 0..submitted.len() {
+            if let Some(addr) = submitted.get(i) {
+                if let Some(s) = env.storage().persistent().get::<_, u64>(&DataKey::QuorumSeed(addr.clone())) {
+                    contributions.push_back((addr.clone(), s));
+                }
+                env.storage().persistent().remove(&DataKey::QuorumSeed(addr));
+            }
+        }
+        env.storage().persistent().remove(&DataKey::QuorumSubmittedOracles);
+        
+        // Only record the contributions if this was an actual Quorum draw,
+        // not a fallback that bypassed quorum completion.
+        if randomness_type == RandomnessType::Vrf {
+            quorum_contributions = Some(contributions);
+        }
     }
 
     env.storage().persistent().set(
@@ -351,18 +364,8 @@ pub(crate) fn do_finalize_with_seed(
             winning_ticket_indices: winning_ticket_ids.clone(),
             draw_timestamp: env.ledger().timestamp(),
             draw_sequence: env.ledger().sequence(),
-        },
-    );
-
-    env.storage().persistent().set(
-        &DataKey::RandomnessSeed,
-        &FairnessMetadata {
-            seed,
-            randomness_source: raffle.randomness_source.clone(),
-            winning_ticket_indices: winning_ticket_ids.clone(),
-            draw_timestamp: env.ledger().timestamp(),
-            draw_sequence: env.ledger().sequence(),
             unique_winners: raffle.unique_winners,
+            quorum_contributions,
         },
     );
 

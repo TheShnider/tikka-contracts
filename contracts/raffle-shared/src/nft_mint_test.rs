@@ -36,7 +36,9 @@ pub struct MockNftContract;
 impl MockNftContract {
     /// Arms/disarms panic-on-mint for failure-path tests.
     pub fn set_should_panic(env: Env, value: bool) {
-        env.storage().instance().set(&MockDataKey::ShouldPanic, &value);
+        env.storage()
+            .instance()
+            .set(&MockDataKey::ShouldPanic, &value);
     }
 
     /// Returns every recorded mint call, in call order.

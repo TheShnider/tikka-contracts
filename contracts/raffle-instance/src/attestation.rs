@@ -107,6 +107,8 @@ pub(crate) fn get_draw_attestation(env: &Env) -> Result<DrawAttestation, Error> 
         winning_ticket_indices: fairness_meta.winning_ticket_indices.clone(),
         draw_timestamp: fairness_meta.draw_timestamp,
         draw_sequence: fairness_meta.draw_sequence,
+        unique_winners: fairness_meta.unique_winners,
+        quorum_contributions: fairness_meta.quorum_contributions,
     };
 
     // Resolve winning ticket IDs from indices

@@ -394,6 +394,7 @@ Verification strength depends on the randomness source:
 |---|---|---|
 | **External (VRF)** | Ed25519 signature over `(contract, request_id, seed)` binds oracle to unpredictable commitment | Oracle didn't collude with finalize timing |
 | **CommitReveal** | Seed derived from ticket-holder commits; verify commits via `CommitEntry(ticket_id)` storage | Enough participants committed unpredictable secrets |
+| **Quorum** | Seed aggregated from at least $k$ unique oracle seeds found in `quorum_contributions` | At least one oracle in the quorum is honest |
 | **Internal** | Deterministic from ledger state; any validator could predict at finalize time | Finalizer timing wasn't adversarially chosen |
 | **Fallback** | Same as Internal (used when External oracle timed out) | Same trust model as Internal |
 
@@ -412,6 +413,14 @@ env.crypto().ed25519_verify(
     &message,
     &stored_proof // from provide_randomness callback
 );
+```
+
+For Quorum draws, verify the seed aggregation:
+
+```rust
+let submitted_seeds = attestation.fairness_data.quorum_contributions.expect("Quorum draw missing contributions");
+let expected_seed = aggregate_quorum_seeds(&env, &submitted_seeds);
+assert_eq!(attestation.fairness_data.seed, expected_seed);
 ```
 
 ### Example: Complete Audit Script
