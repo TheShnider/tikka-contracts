@@ -157,10 +157,21 @@ fn create_token<'a>(env: &'a Env, admin: &Address) -> (Address, StellarAssetClie
     )
 }
 
+#[contract]
+pub struct MockFactory;
+
 #[contractimpl]
 impl MockFactory {
     pub fn record_volume(_env: Env, _token: Address, _amount: i128) {}
     pub fn track_participant(_env: Env, _participant: Address) {}
+
+    pub fn emergency_pause_all(env: Env) {
+        env.storage().instance().set(&Symbol::new(&env, "paused"), &true);
+    }
+
+    pub fn is_global_paused(env: Env) -> bool {
+        env.storage().instance().get(&Symbol::new(&env, "paused")).unwrap_or(false)
+    }
 }
 
 #[test]

@@ -190,3 +190,69 @@ fn cap_cannot_exceed_max_tickets() {
         Err(Ok(Error::InvalidParameters))
     );
 }
+
+#[test]
+fn factory_emergency_pause_blocks_purchases() {
+    let env = Env::default();
+    env.mock_all_auths();
+    
+    let contract_id = env.register(Contract, ());
+    let client = ContractClient::new(&env, &contract_id);
+    let factory_id = env.register(MockFactory, ());
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+    let (payment_token, token) = create_token(&env, &token_admin);
+
+    token.mint(&creator, &1_000_000_000);
+    token.mint(&buyer, &1_000_000_000);
+    
+    let config = RaffleConfig {
+        description: String::from_str(&env, "emergency pause test"),
+        end_time: 0,
+        no_deadline: true,
+        max_tickets: 10,
+        max_tickets_per_tx: 10,
+        max_tickets_per_address: 10,
+        min_tickets: 1,
+        allow_multiple: true,
+        ticket_price: MIN_TICKET_PRICE,
+        payment_token,
+        prize_amount: MIN_TICKET_PRICE * 10,
+        prizes: vec![&env, 10_000u32],
+        randomness_source: RandomnessSource::Internal,
+        oracle_address: None,
+        protocol_fee_bp: 0,
+        treasury_address: None,
+        swap_router: None,
+        tikka_token: None,
+        metadata_hash: BytesN::from_array(&env, &[1; 32]),
+        claim_lockup_seconds: Some(0),
+        swap_deadline_seconds: Some(0),
+        early_bird_ticket_percentage: 0,
+        early_bird_discount_bp: 0,
+        category: None,
+        unique_winners: false,
+        bundles: Vec::new(&env),
+        prize_token: None,
+        nft_contract: None,
+    };
+
+    client.init(&factory_id, &admin, &creator, &config);
+    client.deposit_prize();
+
+    let factory_client = MockFactoryClient::new(&env, &factory_id);
+    factory_client.emergency_pause_all();
+
+    assert_eq!(
+        client.try_buy_tickets(&buyer, &1),
+        Err(Ok(Error::ContractPaused))
+    );
+
+    assert_eq!(
+        client.try_buy_tickets_for(&buyer, &recipient, &1),
+        Err(Ok(Error::ContractPaused))
+    );
+}
